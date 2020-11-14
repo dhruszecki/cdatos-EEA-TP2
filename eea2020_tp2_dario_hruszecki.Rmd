@@ -1,13 +1,32 @@
 ---
 title: "eea2020_tp2_dario_hruszecki"
 author: "Darío Hruszecki"
-output: html_document
+output:
+  html_document:
+    toc: yes
+    toc_depth: '6'
+    df_print: paged
+  html_notebook:
+    theme: spacelab
+    toc_depth: 6
+    toc: yes
+    toc_float: yes
+    df_print: paged
 ---
+
+<style type="text/css">
+div.main-container {
+  max-width: 1600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
 
 ```{r}
 # Carga de librerías
 library(tidyverse)
 library(tidymodels)
+library(epiDisplay)
 library(GGally)
 library(corrr)
 library(knitr)
@@ -33,7 +52,7 @@ train_ds <- read_csv(here("/ds/ar_properties_train.csv"))
 ```{r}
 head(train_ds)
 ```
-#### Vemos las dimensiones del DS y como se distribuyen los valores de las variables
+#### Vemos las dimensiones del dataset
 ```{r}
 dim_desc(train_ds)
 ```
@@ -54,173 +73,137 @@ unique(train_ds$property_type)
 ```{r}
 apply(train_ds, 2, function(x) any(is.na(x)))
 ```
-
+#### Calculamos la distribución de frecuencias para los valores de *property_type*
 ```{r}
-table(train_ds$property_type)
+tab1(train_ds$property_type, sort.group = "decreasing", cum.percent = TRUE)
 ```
+#### Calculamos la distribución de frecuencias para los valores de *l3*
 ```{r}
-tail(table(train_ds$l3)[], 10)
+tab1(train_ds$l3, sort.group = "decreasing", cum.percent = TRUE)
 ```
-
-
 #### Observaciones sobre los datos
-
 * El dataset contiene 8 variables y 32132 registros
 * De las 8 variables, 5 son núnericas y 3 son alfanuméricas
 * De las variables alfanuméricas tenemos el barrio (*l3*) y el tipo de propiedad (*property_type*). La tercera es un UUID para la propiedad (*id*)
 * En base a los valores únicos encontrados para *l3* podemos inferir que las propiedades pertenecen a CABA en su totalidad.
 * De las númericas, además del precio (*price*) tenemos variables que describen la propiedad: cantidad de habitaciones (*rooms*), cantidad de baños (*bathrooms*), supervicie total (*surface_total*) y superficie cubierta (*surface_covered*)
 * No se observan valores NA en ninguna de las columnas
-
-
-
-## CONSIGNA
-
+* Aproximadamente un 88% de las propiedades son de tipo Departamento
+* Aproximadamente un 60% de las propiedades se encuentran en los neighborhood de Palermo, Belgrano, Almagro, Caballito, Villa Crespo, Recoleta, Barrio Norte y Villa Urquiza
 
 ## Modelo de Regresion Lineal Multiple
 
+### Generación del Modelo con todas las covariables (lm_all)
 
-### Generación del Modelo con todas las covariables
-
-Vamos a generar un modelo que utilice todas las covariables presentes en nuestro **dataset de training** para buscar predecir el **precio**.
 ```{r}
-modelo_todas_covariables <- lm(
-  price ~ rooms + bathrooms + surface_total + surface_covered + property_type + l3, 
-  data = train_ds
-  )
-tidy_mtc <- tidy(modelo_todas_covariables, conf.int = TRUE)
-tidy_mtc
+lm_all <- lm(price ~ rooms + bathrooms + surface_total + surface_covered + property_type + l3, data = train_ds)
+
+tidy_lm_all <- tidy(lm_all, conf.int = TRUE)
+tidy_lm_all
 ```
 
 ### Análisis del Modelo con todas las covariables
 
 #### Significado de los coeficientes estimados
 
-- El valor de la ordenada al origen (-109.143,78) es el valor del precio esperado para una propiedad sin ambientes o superficie y que no pertenece a ningún tipo (Casa, PH o Departamento) y que no se encuentra en ninguna zona (es una inferencia más teórica de nuestro modelo dado que no es representativo en la realidad).
+* **(intercept)** (-109143.7839): es una inferencia teórica del modelo, no representa la realidad, sería una propiedad sin superficie, habitaciones, barrio, etc.
 
-- El coeficiente estimado de ambientes es -4359,73. Esto implica que manteniendo constantes todas nuestras otras covariables, un aumento de un ambiente a nuestra propiedad corresponde a una quita de $4359, *en promedio* en el precio de una propiedad.
+* **rooms** (-4359.7289): Al ser negativo implica una quita promedio de ese valor en el precio de la propiedad al aumentar en 1 la cantidad de ambientes.
 
-- El coeficiente estimado de baños es 34.367,21. Esto implica que manteniendo constantes todas nuestras otras covariables, un aumento de un baño a nuestra propiedad corresponde a una aumento de $34.367, *en promedio* en el precio de una propiedad.
+* **bathrooms** (34367.2123): Indica en cuanto aumenta en promedio el valor de la propiedad por agregar un baño.
 
-- El coeficiente estimado de superficie total es 890,56. Esto implica que manteniendo constantes todas nuestras otras covariables, un aumento en una unidad de superficie (m2) a nuestra propiedad corresponde a una aumento de $890, *en promedio* en el precio de una propiedad.
+* **surface_total** (890.5585): Indica en cuanto aumenta en promedio el valor de la propiedad por aumentas en 1 m2 la superficie total.
 
-- El coeficiente estimado de superficie cubierta es 1.497,93. Esto implica que manteniendo constantes todas nuestras otras covariables, un aumento en una unidad de superficie cubierta (m2) a nuestra propiedad corresponde a una aumento de $1.498, *en promedio* en el precio de una propiedad.
+* **surface_covered** (1497.9310): Indica en cuanto aumenta en promedio el valor de la propiedad por aumentas en 1 m2 la superficie cubierta.
 
-- Los coeficientes de tipo de propiedad (Departamento y PH) indican cuanto aumenta la función de respuesta (precio) para un departamento o un ph en comparación a una casa (categoría basal). Sus valores de β respectivos son para los departamentos 91.485,94 y para los PHs 46.220,04
+* **property_typeDepartamento** (91485.9410): El valor de β (91485.9410) indica cuanto aumenta la función de respuesta para un departamento en comparación de una casa.
 
-- Finalmente tenemos 56 coeficientes para la variable **l3** que representan en cuanto aumenta o se reduce el precio de una propiedad dependiendo de la zona específica a la cual pertenece.
+* **property_typePH** (46220.0449): El valor de β (46220.0449) indica cuanto aumenta la función de respuesta para un PH en comparación de una casa.
 
+* **l3{Barrio}** : Son 56 coeficientes que indican en cuanto aumenta o se disminuye en promedio el precio de una propiedad dependiendo del barrio en donde esta ubicada.
 
-#### Significatividad de variables dummies
+*Observación: para cada coeficiente se asume que se mantienen constantes el restos de las covariables*.
 
-Observamos en nuestro modelo dos tipos distintos de variables *dummies*. Aquellas que responden a la variable **property_type** y aquellas que responden a la variable **l3**.
+#### ¿Qué observamos al respecto de la significatividad de las variables dummy?
 
-Podemos observar que los p-valores asociados a los coeficientes de la variable **property_type**, resultan estadísticamente significativos.
-En cuanto a aquellos p-valores asociados a los coeficientes de la variable **l3** nos encontramos con que en algunos casos resultan estadísticamente significativos (*l3Balvanera* con un p-valor de 0,000002) pero en otros casos no lo es (*l3Agronomía* con un p-valor de 0,9).
+Analizando los p-valores de las variables dummies asociadas a **property_type** estas resultan estadísticamente significativas. Por otro lado, las variables dummies asociados a la variable **l3**  se reparten entre algunas significativas y otras no.
 
-Además podemos observar que los intervalos de confianza para las variables dummy que responden a **property_type** no contienen al 0 y en lineas generales, aquellos que responden a la variable **l3** si lo contienen.
-
-Vamos a aplicar un Test F (test de ignificatividad global) para medir la significatividad conjunta de las variables categóricas en nuestro modelo.
+##### Aplicamos Test F 
 ```{r}
-tidy(
-  anova(modelo_todas_covariables)
-)
+tidy(anova(lm_all))
 ```
- La tabla de ANOVA muestra que tanto la variable categorica **property_type** como **l3** en su conjunto resultan estadísticamente significativas (p-valor < 0.05). Por ende buscaremos determinar cuales de las comparaciones entre grupos son estadísticamente significativas.
+Analizando la significatividad global de las variables **l3** y **property_type** y observando que tienen un p-valor menor a 0.5 se puede concluir que ambas son signigicativas.
  
 #### Evaluación del Modelo
 
-Graficamos los coeficientes estimados.
-```{r warning=FALSE, fig.width=11, fig.height=11}
-ggplot(
-  tidy_mtc, 
-  aes(
-    estimate, 
-    term, 
-    xmin = conf.low, 
-    xmax = conf.high, 
-    height = 0
-  )
-) +
-  geom_point(
-    color = "forestgreen", 
-    size=2
-  ) +
-  geom_vline(
-    xintercept = 0, 
-    lty = 4, 
-    color = "black"
-  ) +
-  geom_errorbarh(
-    color = "forestgreen", 
-    size=1
-  ) + 
+##### Resúmen global (glance) del modelo lm_all
+```{r}
+glance(lm_all)
+```
+
+#### Gráfico de coeficientes del modelo lm_all
+```{r warning=FALSE, fig.width=15, fig.height=15}
+ggplot(tidy_lm_all, 
+  aes(estimate, term, xmin = conf.low, xmax = conf.high, height = 1)) +
+  geom_point(color = "blue", size=3) +
+  geom_vline(xintercept = 0, lty = 2, color = "black") + 
+  geom_errorbarh(color = "red", size=1) + 
   theme_bw() +
-  labs(
-    y = "Coeficientes β", 
-    x = "Estimación"
-  )
+  labs(y = "Coeficientes β", x = "Estimación")
 ```
-De analizar el grafico de los coeficientes podemos visualizar los intervalos de confianza de las distintas variables. Claramente podemos observar como hay muchas variables dummy asociadas a la variable **l3** que incluyen el 0 dentro de sus intervalos de confianza y por ende podemos asumir que estas variables no son significativas para explicar el precio de las propiedades.
+El **r.squared** en el resúmen global representa el R cuadrado o coeficiente de determinación que refleja la bondad del ajuste del modelo a la variable precio. Al ser un valor cercano a 1 nos está diciendo que el modelo **lm_all** ajusta muy bien dicha variable.
 
-Y ahora analizamos las medidas del resumen global del modelo. 
-```{r}
-glance(modelo_todas_covariables)
-```
- Analizando el valor del $Rˆ2$ ajustado del modelo, podemos ver que el mismo parece explicar un buen porcentaje de variabilidad del conjunto. 
- 
- ### Generación de Modelo sin **l3**
- 
- Ahora vamos a generar un modelo sin la variable **l3** para comparar y analizar el impacto de esta variable en nuestro modelo previo.
-```{r}
-modelo_sin_l3 <- lm(
-  price ~ rooms + bathrooms + surface_total + surface_covered + property_type, 
-  data = train_ds
-)
-tidy_msl3 <- tidy(modelo_sin_l3, conf.int = TRUE)
-tidy_msl3
-```
-Podemos observar como en nuestro nuevo modelo, los p-valores de todos los coeficientes asociados a nuestras variables resultan estadísticamente significativos (p-valor < 0.05). Además ninguno de los intervalos de confianza de nuestros coeficientes incluyen el 0.
+Por otro lado, el gráfico nos permite visualizar con mayor claridad los intervalos de confiaza de de los coeficientes  de las variables dummies de **l3**. Muchas de ellas incluyen el cero, ergo estas variables podrían considerarse no significativas.
 
-Vamos a aplicar un Test F (test de ignificatividad global) para medir la significatividad conjunta de las variables categóricas en nuestro modelo. 
+### Generación de un modelo lineal sin la covariable **l3**
+
+```{r}
+lm_wo_l3 <- lm(price ~ rooms + bathrooms + surface_total + surface_covered + property_type, data = train_ds)
+
+tidy_lm_wo_l3 <- tidy(lm_wo_l3, conf.int = TRUE)
+tidy_lm_wo_l3
+```
+##### Aplicamos Test F 
 ```{r}
 tidy(
-  anova(modelo_sin_l3)
+  anova(lm_wo_l3)
 )
 ``` 
-Los resultados del ANOVA muestran que todas las variables utilizadas son estadisticamente significativas (respaldando lo visto en el anterior modelo).
+Al quitar la variable *l3* la cantidad de coeficientes se reduce considerablemente, no necesitamos graficar para indentificar que ningúno de los intervalos de confianza incluye el 0. 
+Por otro lado todos los p-values son menores a 0.5 ergo las variables se pueden considerar significativas, esto tambien se ve confirmado por el resultado del Test F.
 
-Y ahora analizamos comparativamente las medidas del resumen global de nuestros 2 modelos. 
+### Determinamos cuál modelo explica mejor la variabilidad del precio (lm_all o lm_wo_l3)
 ```{r}
-modelos = list(
-  modelo_todas_covariables = modelo_todas_covariables,
-  modelo_sin_l3 = modelo_sin_l3
-)
+models = list(lm_all = lm_all, lm_wo_l3 = lm_wo_l3)
 
-purrr::map_df(modelos, broom::glance, .id = "model")
+purrr::map_df(models, broom::glance, .id = "model")
 ```
-Como se puede observar, el **modelo_todas_covariables** es el modelo que mejor explica la variabilidad en nuestro conjunto (evaluamos el coeficiente $Rˆ2$ ajustado para ambos).
+El R cuadrado de **lm_all**  es superior al del modelo **lm_wo_l3** por lo tanto el modelo que contiene todas las covariables es el que mejor explica la variable la variabilidad del precio.
 
 ## Creación de Variables
 
-### Armado de nuevo dataset
+### Creación variable **neighborhood**
 
-En nuestro analisis previo, observamos como algunos barrios (variable **l3**) eran significativos y otros no. Por ende, vamos a proponer la generación de una nueva variable **barrios** que nos permite agrupar mas eficientemente nuestros datos.
+En el análisis anterior se observó que **l3** no es un buen agrupador, algunas de sus dummies eran significativas pero muchas otras no. Vamos a proceder a crear una nueva variable **neighborhood** que agrupe a las propiedad teniendo en cuenta el precio del metro cuadrado.
 
-Para hacerla, vamos a generar otra variable **precio_m2** que contiene el valor de **price** sobre el total de metros cuadrados de superficie (**surface_total**). Luego, sobre esta variable, agruparemos los datos en tres categorías (variable **barrios**):
-- precio_bajo: aquellas propiedades con valores iguales o inferiores al Q1 de nuestra variable **precio_m2**
-- precio_medio: aquellas propiedades con valores superiores al Q1 y con valores inferiores o iguales al Q3 de nuestra variable **precio_m2**
-- precio_alto: aquellas propiedades con valores superiores al Q3 de nuestra variable **precio_m2**
+Es necesario tambien agregar otra variable auxiliar que contenta el precio por metro para luego poder hacer el agrupamiento necesario:
+
+* *price_m_sq* =  *price_m_sq*  / *surface_total* 
+
+La valores posibles de **neighborhood** van a ser: 
+
+* *low_price* => *price_m_sq*  <= Q1 (*price_m_sq*)
+* *medium_price* => *price_m_sq*  > Q1 (*price_m_sq*) &  *price_m_sq*  <= Q2 (*price_m_sq*)
+* *high_price* => *price_m_sq*  > Q3 (*price_m_sq*)
 
 ```{r}
-train_ds = train_ds %>%
-  mutate(
-    precio_m2 = price / surface_total,
-    barrios = factor(
+train_ds = train_ds %>% mutate(
+    price_m_sq = price / surface_total,
+    neighborhood = factor(
       case_when(
-        precio_m2 <= quantile(precio_m2)[2] ~ "precio_bajo",
-        precio_m2 > quantile(precio_m2)[2] & precio_m2 <= quantile(precio_m2)[4] ~ "precio_medio",
-        precio_m2 > quantile(precio_m2)[4] ~ "precio_alto"
+        price_m_sq <= quantile(price_m_sq)[2] ~ "low_price",
+        price_m_sq > quantile(price_m_sq)[2] & price_m_sq <= quantile(price_m_sq)[4] ~ "medium_price",
+        price_m_sq > quantile(price_m_sq)[4] ~ "high_price"
       )
     )
   )
@@ -228,85 +211,62 @@ train_ds = train_ds %>%
 train_ds
 ```
 
-### Generación de un nuevo modelo
+### Generamos modelo reemplazando *l3* por *neighborhood*
 
-Ahora vamos a generar un nuevo modelo incluyendo nuestras nueva covariables **barrios**.
 ```{r}
-modelo_barrios <- lm(
-  price ~ rooms + bathrooms + surface_total + surface_covered + property_type + barrios , 
-  data = train_ds
-) 
-tidy_mb <- tidy(modelo_barrios, conf.int = TRUE)
-tidy_mb
+lm_neighborhoods <- lm(price ~ rooms + bathrooms + surface_total + surface_covered + property_type + neighborhood, data = train_ds)
+
+tify_lm_neighborhoods <- tidy(lm_neighborhoods, conf.int = TRUE)
+tify_lm_neighborhoods
 ```
-Podemos apreciar como los p-valores de los coeficientes resultan significativos. 
-Sin embargo el valor de mi coeficiente $B_0$ parece no ser significativo (p-valor > 0.05). Más aún, podemos comprobar que su intervalo de confianza incluye el 0.
 
-### Evaluación Modelo Barrios
+Observaciones
+* Todas los coeficientes tiene p-value menor a 0.5 por lo tanto las variables son significativas
+* El intervalo de confianza del B0 contiene al cero
 
-Comparamos nuestros 3 modelos.
+### Determinamos cuál modelo explica mejor la variabilidad del precio (lm_all, lm_wo_l3 o lm_neighborhood)
+
 ```{r}
-modelos = list(
-  modelo_todas_covariables = modelo_todas_covariables,
-  modelo_sin_l3 = modelo_sin_l3,
-  modelo_barrios = modelo_barrios
-)
+models = list( lm_all = lm_all, lm_wo_l3 = lm_wo_l3, lm_neighborhoods = lm_neighborhoods )
 
-purrr::map_df(modelos, broom::glance, .id = "model") %>%
-  arrange(adj.r.squared)
+purrr::map_df(models, broom::glance, .id = "model") %>% arrange(adj.r.squared)
 ```
-Podemos observar como el modelo que mejor explica la variabilidad, $Rˆ2$ ajustado, es nuestro *modelo_barrios* seguido en orden por *modelo_todas_covariables* y *modelo_sin_l3*.
+El modelo *lm_neighborhoods* supera al *lm_all* en el R cuadrado y por lo tanto tiene mayor explicabilidad sobre la variabilidad del precio de las propiedades.
 
-Más aún, como el *modelo_barrios* tiene coeficientes que son estadísticamente significativos, resulta más útil para el análisis del precio de nuestras propiedades (a pesar que la información de los valores de **l3** podría ser más util en un análisis mas profundo).
+### Creación variable **surface_uncovered**
 
-
-### Generación Modelo Supercicie Descubierta
-
-Dada la fuerte correlación entre las variables  **surface_total** y **surface_covered**, vamos a generar una nueva variable llamada **sup_descubierta** que representa la diferencia entre la superficie total y la cubierta.
+Las variables  **surface_total** y **surface_covered** están muy correlacionadas por lo que vamos a generar una nueva variable llamada **surface_uncovered** que representa la diferencia entre la superficie total y la cubierta.
 ```{r}
-train_ds = train_ds %>%
-  mutate(sup_descubierta = surface_total - surface_covered)
+train_ds = train_ds %>% mutate(surface_uncovered = surface_total - surface_covered)
 
 train_ds 
 ```
 
-Ahora con nuestra nueva variable, vamos a generar un nuevo modelo que incluya la variable **sup_descubierta** en reemplazo de la variable **surface_total**.
-```{r}
-modelo_sup_descubierta <- lm(
-  price ~ rooms + bathrooms + sup_descubierta + surface_covered + property_type + precio_m2 + barrios , 
-  data = train_ds
-) 
-tidy_msd <- tidy(modelo_sup_descubierta, conf.int = TRUE)
-tidy_msd
-```
-Podemos observar como los p-valores de todos nuestros coeficientes resultan significativos en nuestro nuevo modelo.
+### Generamos modelo reemplazando *surface_total* por *surface_uncovered*
 
 ```{r}
-tidy(
-  anova(modelo_sup_descubierta)
-)
-```
-Y al ejecutar el Test F, validamos el mismo.
+lm_surface_uncovered <- lm( price ~ rooms + bathrooms + surface_uncovered + surface_covered + property_type + price_m_sq + neighborhood,  data = train_ds)
 
-Ahora comparamos todos los modelos que generamos.
+tidy_lm_surface_uncovered <- tidy(lm_surface_uncovered, conf.int = TRUE)
+tidy_lm_surface_uncovered
+```
+Observaciones
+* Todas los coeficientes tiene p-value menor a 0.5 por lo tanto las variables son significativas
+
+### Determinamos cuál modelo explica mejor la variabilidad del precio (lm_all, lm_wo_l3, lm_neighborhood o lm_surface_uncovered)
+
 ```{r}
-modelos = list(
-  modelo_todas_covariables = modelo_todas_covariables,
-  modelo_sin_l3 = modelo_sin_l3,
-  modelo_barrios = modelo_barrios,
-  modelo_sup_descubierta = modelo_sup_descubierta
-)
+models = list( lm_all = lm_all, lm_wo_l3 = lm_wo_l3, lm_neighborhoods = lm_neighborhoods, lm_surface_uncovered = lm_surface_uncovered )
 
-purrr::map_df(modelos, broom::glance, .id = "model") %>%
-  arrange(adj.r.squared)
+purrr::map_df(models, broom::glance, .id = "model") %>% arrange(adj.r.squared)
 ```
-Podemos observar como nuestro nuevo modelo *modelo_sup_descubierta* es el que mejor explica la variabilidad.
+El modelo *lm_surface_uncovered	* supera al *lm_neighborhoods* en el R cuadrado y por lo tanto tiene mayor explicabilidad sobre la variabilidad del precio de las propiedades.
 
 ## Diagnóstico del Modelo
 
 Vamos a evaluar nuestro modelo lineal con la variable **sup_descubierta**
 ```{r}
-plot(modelo_sup_descubierta)
+plot(lm_surface_uncovered)
 ```
 - *Residuos vs valores predichos:* parece existir  una cierta estructura en los datos. La linealidad parece que no se respeta. Vemos la existencía de heterocedasticidad a medida que aumentan las predicciones. Se resaltan 2 observaciones.
 - *Normal QQ plot:* los extremos no se ajustan a la distribución teórica, tanto inferior izquierdo como superior derecho.
@@ -324,7 +284,7 @@ $$
 Para esto vamos a generar nuestros nuevas variables
 ```{r}
 modelo_log = lm(
-  log(price) ~ log(rooms) + log(bathrooms) + log(surface_covered) + property_type + barrios + sup_descubierta,
+  log(price) ~ log(rooms) + log(bathrooms) + log(surface_covered) + property_type + neighborhood + sup_descubierta,
   data = train_ds
 )
 tidy_ml <- tidy(modelo_log, conf.int = TRUE)
@@ -338,11 +298,11 @@ tidy(
 ```
 De nuestro modelo confirmamos que todos los coeficientes resultan significativos.
 
-Ahora comparamos nuestro nuevo *modelo_log* con nuestro *modelo_sup_descubierta*.
+Ahora comparamos nuestro nuevo *modelo_log* con nuestro *lm_surface_uncovered*.
 ```{r}
 modelos = list(
   modelo_log = modelo_log,
-  modelo_sup_descubierta = modelo_sup_descubierta
+  lm_surface_uncovered = lm_surface_uncovered
 )
 
 purrr::map_df(modelos, broom::glance, .id = "model")
@@ -353,22 +313,22 @@ Ahora vamos a analizar el cumplimiento de los supuestos del modelo lineal
 ```{r}
 plot(modelo_log)
 ```
-- *Residuos vs valores predichos:* parece existir  una cierta estructura en los datos. La linealidad se respeta. Podemos observar un comportamiento heterocedástico aunque parece ser más uniforme que el del *modelo_sup_descubierta*. Se resaltan 3 observaciones (observaciones 3636,3709,7346).
-- *Normal QQ plot:* los extremos no se ajustan a la distribución teórica, tanto inferior izquierdo como superior derecho. Sin embargo parece que se comportan ligeramente mejor que el *modelo_sup_descubierta* (parecen estár mas suavizados los extremos).
+- *Residuos vs valores predichos:* parece existir  una cierta estructura en los datos. La linealidad se respeta. Podemos observar un comportamiento heterocedástico aunque parece ser más uniforme que el del *lm_surface_uncovered*. Se resaltan 3 observaciones (observaciones 3636,3709,7346).
+- *Normal QQ plot:* los extremos no se ajustan a la distribución teórica, tanto inferior izquierdo como superior derecho. Sin embargo parece que se comportan ligeramente mejor que el *lm_surface_uncovered* (parecen estár mas suavizados los extremos).
 - *Residual vs leverage:*. se pueden apreciar 2 puntos con un leverage bastante alto y el grafico resalta 3 observaciones.
 
-- **Diagnóstico del modelo:** El modelo creado no cumple con los supuestos del modelo lineal.Sin embargo y de observar los gráficos, parece que se comporta mejor que el *modelo_sup_descubierta*.
+- **Diagnóstico del modelo:** El modelo creado no cumple con los supuestos del modelo lineal.Sin embargo y de observar los gráficos, parece que se comporta mejor que el *lm_surface_uncovered*.
 
 ## Selección del Modelo
 
-Vamos a generar un nuevo modelo utilizando como variables $log(rooms)$, $log(bathrooms)$, $log(surface_total)$, **property_type** y **barrios** y otro similar a nuestro *modelo_log* reemplazando la variable **barrios** por la variable **l3**.
+Vamos a generar un nuevo modelo utilizando como variables $log(rooms)$, $log(bathrooms)$, $log(surface_total)$, **property_type** y **neighborhood** y otro similar a nuestro *modelo_log* reemplazando la variable **neighborhood** por la variable **l3**.
 
 ### Generación Nuevos Modelos
 
 Generamos nuestro modelo *modelo_log_surface_total* que buscará inferir el resultado del $log(price)$
 ```{r}
 modelo_log_surface_total = lm(
-  log(price) ~ log(rooms) + log(bathrooms) + log(surface_total) + property_type + barrios,
+  log(price) ~ log(rooms) + log(bathrooms) + log(surface_total) + property_type + neighborhood,
   data = train_ds
 )
 tidy_mlst <- tidy(modelo_log_surface_total, conf.int = TRUE)
@@ -423,11 +383,11 @@ plot(modelo_log_l3)
 ### Evaluación de Modelos Seleccionados
 
 Ahora vamos a elegir 2 de los modelos previamente desarrollados para evaluar y seleccionar, junto a nuestros 2 nuevos modelos, cual es el que mejor permite inferir el precio de una propiedad.
-Vamos a elegir los modelos que mejor expresan la variabilidad $Rˆ2$. Estos son el *modelo_log* y *modelo_sup_descubierta*.
+Vamos a elegir los modelos que mejor expresan la variabilidad $Rˆ2$. Estos son el *modelo_log* y *lm_surface_uncovered*.
 ```{r}
 modelos = list(
   modelo_log = modelo_log,
-  modelo_sup_descubierta = modelo_sup_descubierta,
+  lm_surface_uncovered = lm_surface_uncovered,
   modelo_log_surface_total = modelo_log_surface_total,
   modelo_log_l3 = modelo_log_l3
 )
@@ -445,12 +405,12 @@ propiedades_test <- read_csv(here("/ds/ar_properties_test.csv"))
 
 propiedades_test = propiedades_test %>%
   mutate(
-    precio_m2 = price / surface_total,
-    barrios = factor(
+    price_m_sq = price / surface_total,
+    neighborhood = factor(
       case_when(
-        precio_m2 <= quantile(precio_m2)[2] ~ "precio_bajo",
-        precio_m2 > quantile(precio_m2)[2] & precio_m2 <= quantile(precio_m2)[4] ~ "precio_medio",
-        precio_m2 > quantile(precio_m2)[4] ~ "precio_alto"
+        price_m_sq <= quantile(price_m_sq)[2] ~ "low_price",
+        price_m_sq > quantile(price_m_sq)[2] & price_m_sq <= quantile(price_m_sq)[4] ~ "medium_price",
+        price_m_sq > quantile(price_m_sq)[4] ~ "high_price"
       )
     ),
     sup_descubierta = surface_total - surface_covered
@@ -461,7 +421,7 @@ propiedades_test
 
 #### Evaluamos en Training
 
-Ahora vamos a evaluar nuestros modelos en training y evaluar sus predicciones en testing. Para esto es necesario hacer un análisis distinto para los modelos que utilizan $log$ que para el *modelo_sup_descubierta*.
+Ahora vamos a evaluar nuestros modelos en training y evaluar sus predicciones en testing. Para esto es necesario hacer un análisis distinto para los modelos que utilizan $log$ que para el *lm_surface_uncovered*.
 ```{r}
 modelos_log = list(
   modelo_log = modelo_log,
@@ -485,7 +445,7 @@ map_dfr(
 ```
 
 ```{r}
-eval_train_sd = augment(modelo_sup_descubierta)
+eval_train_sd = augment(lm_surface_uncovered)
 ```
 
 ```{r}
@@ -495,7 +455,7 @@ rmse(
   estimate = .fitted
 )
 ```
-Analizando los **RMSE** de nuestros modelos en training, podemos observar que el modelo con el menor valor es nuestro *modelo_sup_descubierta* seguido (en orden) por los modelos *modelo_log_surface_total*, *modelo_log*, *modelo_log_l3*.
+Analizando los **RMSE** de nuestros modelos en training, podemos observar que el modelo con el menor valor es nuestro *lm_surface_uncovered* seguido (en orden) por los modelos *modelo_log_surface_total*, *modelo_log*, *modelo_log_l3*.
 
 #### Evaluamos en Testing
 
@@ -521,7 +481,7 @@ map_dfr(
 
 ```{r}
 pred_log = augment(
-  modelo_sup_descubierta, 
+  lm_surface_uncovered, 
   newdata=propiedades_test
 ) 
 pred_log
@@ -534,7 +494,7 @@ rmse(
   estimate = .fitted
 )
 ```
-Volvemos a observar como el modelo con el menor valor de **RMSE** es nuestro *modelo_sup_descubierta*.
+Volvemos a observar como el modelo con el menor valor de **RMSE** es nuestro *lm_surface_uncovered*.
 
 ### Conclusion
 
@@ -544,11 +504,11 @@ Sin embargo, podemos utilizar nuestros modelos para predecir los valores del **p
 - $Rˆ2$
 - **RMSE**
 
-Los modelos que mejor explican la variabilidad medida por $Rˆ2$ ajustado son el *modelo_log*, *modelo_sup_descubierta* y *modelo_log_surface_total*. Todos estos modelos se encuentran con valores superiores a 0.91.
+Los modelos que mejor explican la variabilidad medida por $Rˆ2$ ajustado son el *modelo_log*, *lm_surface_uncovered* y *modelo_log_surface_total*. Todos estos modelos se encuentran con valores superiores a 0.91.
 
-Sin embargo, nosotros queremos predecir nuevos datos y para ello es importante medir el **RMSE** para evaluar el error en la predicción. Al analizar esta metrica, observamos un salto importante entre nuestro *modelo_sup_descubierta* (38974.87) y sus seguidores *modelo_log_surface_total* (43832.07) y *modelo_log* (46152.97).
+Sin embargo, nosotros queremos predecir nuevos datos y para ello es importante medir el **RMSE** para evaluar el error en la predicción. Al analizar esta metrica, observamos un salto importante entre nuestro *lm_surface_uncovered* (38974.87) y sus seguidores *modelo_log_surface_total* (43832.07) y *modelo_log* (46152.97).
 
-Por ende seleccionaría como mi mejor modelo el modelo **modelo_sup_descubierta**.
+Por ende seleccionaría como mi mejor modelo el modelo **lm_surface_uncovered**.
 
 
 
