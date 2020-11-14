@@ -151,7 +151,8 @@ ggplot(tidy_lm_all,
   theme_bw() +
   labs(y = "Coeficientes β", x = "Estimación")
 ```
-El **r.squared** en el resúmen global representa el R cuadrado o coeficiente de determinación que refleja la bondad del ajuste del modelo a la variable precio. Al ser un valor cercano a 1 nos está diciendo que el modelo **lm_all** ajusta muy bien dicha variable.
+
+El **r.squared** en el resúmen global representa el $Rˆ2$ o coeficiente de determinación que refleja la bondad del ajuste del modelo a la variable precio. Al ser un valor cercano a 1 nos está diciendo que el modelo **lm_all** ajusta muy bien dicha variable.
 
 Por otro lado, el gráfico nos permite visualizar con mayor claridad los intervalos de confiaza de de los coeficientes  de las variables dummies de **l3**. Muchas de ellas incluyen el cero, ergo estas variables podrían considerarse no significativas.
 
@@ -163,12 +164,14 @@ lm_wo_l3 <- lm(price ~ rooms + bathrooms + surface_total + surface_covered + pro
 tidy_lm_wo_l3 <- tidy(lm_wo_l3, conf.int = TRUE)
 tidy_lm_wo_l3
 ```
+
 ##### Aplicamos Test F 
 ```{r}
 tidy(
   anova(lm_wo_l3)
 )
 ``` 
+
 Al quitar la variable *l3* la cantidad de coeficientes se reduce considerablemente, no necesitamos graficar para indentificar que ningúno de los intervalos de confianza incluye el 0. 
 Por otro lado todos los p-values son menores a 0.5 ergo las variables se pueden considerar significativas, esto tambien se ve confirmado por el resultado del Test F.
 
@@ -178,7 +181,8 @@ models = list(lm_all = lm_all, lm_wo_l3 = lm_wo_l3)
 
 purrr::map_df(models, broom::glance, .id = "model")
 ```
-El R cuadrado de **lm_all**  es superior al del modelo **lm_wo_l3** por lo tanto el modelo que contiene todas las covariables es el que mejor explica la variable la variabilidad del precio.
+
+El $Rˆ2$ de **lm_all**  es superior al del modelo **lm_wo_l3** por lo tanto el modelo que contiene todas las covariables es el que mejor explica la variable la variabilidad del precio.
 
 ## Creación de Variables
 
@@ -220,7 +224,8 @@ tify_lm_neighborhoods <- tidy(lm_neighborhoods, conf.int = TRUE)
 tify_lm_neighborhoods
 ```
 
-Observaciones
+Observaciones:
+
 * Todas los coeficientes tiene p-value menor a 0.5 por lo tanto las variables son significativas
 * El intervalo de confianza del B0 contiene al cero
 
@@ -231,7 +236,8 @@ models = list( lm_all = lm_all, lm_wo_l3 = lm_wo_l3, lm_neighborhoods = lm_neigh
 
 purrr::map_df(models, broom::glance, .id = "model") %>% arrange(adj.r.squared)
 ```
-El modelo *lm_neighborhoods* supera al *lm_all* en el R cuadrado y por lo tanto tiene mayor explicabilidad sobre la variabilidad del precio de las propiedades.
+
+El modelo *lm_neighborhoods* supera al *lm_all* en el $Rˆ2$ y por lo tanto tiene mayor explicabilidad sobre la variabilidad del precio de las propiedades.
 
 ### Creación variable **surface_uncovered**
 
@@ -250,7 +256,9 @@ lm_surface_uncovered <- lm( price ~ rooms + bathrooms + surface_uncovered + surf
 tidy_lm_surface_uncovered <- tidy(lm_surface_uncovered, conf.int = TRUE)
 tidy_lm_surface_uncovered
 ```
-Observaciones
+
+Observaciones:
+
 * Todas los coeficientes tiene p-value menor a 0.5 por lo tanto las variables son significativas
 
 ### Determinamos cuál modelo explica mejor la variabilidad del precio (lm_all, lm_wo_l3, lm_neighborhood o lm_surface_uncovered)
@@ -260,150 +268,132 @@ models = list( lm_all = lm_all, lm_wo_l3 = lm_wo_l3, lm_neighborhoods = lm_neigh
 
 purrr::map_df(models, broom::glance, .id = "model") %>% arrange(adj.r.squared)
 ```
-El modelo *lm_surface_uncovered	* supera al *lm_neighborhoods* en el R cuadrado y por lo tanto tiene mayor explicabilidad sobre la variabilidad del precio de las propiedades.
+El modelo *lm_surface_uncovered* supera al *lm_neighborhoods* en el $Rˆ2$ y por lo tanto tiene mayor explicabilidad sobre la variabilidad del precio de las propiedades.
 
 ## Diagnóstico del Modelo
 
-Vamos a evaluar nuestro modelo lineal con la variable **sup_descubierta**
 ```{r}
 plot(lm_surface_uncovered)
 ```
-- *Residuos vs valores predichos:* parece existir  una cierta estructura en los datos. La linealidad parece que no se respeta. Vemos la existencía de heterocedasticidad a medida que aumentan las predicciones. Se resaltan 2 observaciones.
-- *Normal QQ plot:* los extremos no se ajustan a la distribución teórica, tanto inferior izquierdo como superior derecho.
-- *Residual vs leverage:*Existen cuatro puntos con un leverage bastante alto. Y se identifican 2 puntos como posibles outliers. .
 
-- **Diagnóstico del modelo:** El modelo creado no cumple con los supuestos del modelo lineal. No parece ser concluyente respecto de la homocedasticidad, definitivamente existe una falta de normalidad y hay presencia de observaciones de alto leverage
+Del plot de **Residual vs Fitted** se puede observar q no se respeta la linealidad parece que no se respeta y  por otro lado mientras aumentan las predicciones aumenta la heterocedasticidad, además existen varios puntos con un leverage alto que se pueden observar en el plot **Residual vs leverage**, donde al menos dos pueden ser outliers.
+Por último en el plot **Normal Q-Q* se observa que los extremos no se ajustan a la distribución teórica.
 
-## Modelo Log(*price*)
+En conclusión, el modelo *lm_surface_uncovered* no comple con los supuestos del modelo lineal.
 
-Vamos a generar un modelo para predecir el logaritmo natural de la variable **price**
+## Modelo Log(price)
+
 $$
-log(price) = \beta_0 + \beta_1log(rooms) + \beta_2log(bathrooms) + \beta_3log(surface\_covered) + \beta_4property\_type + \beta_5barrio + \beta_6surface\_patio
+log(price) = \beta_0 + \beta_1log(rooms) + \beta_2log(bathrooms) + \beta_3log(surface\_covered) + \beta_4property\_type + \beta_5neighborhood + \beta_6surface\_uncovered
 $$
 
-Para esto vamos a generar nuestros nuevas variables
 ```{r}
-modelo_log = lm(
-  log(price) ~ log(rooms) + log(bathrooms) + log(surface_covered) + property_type + neighborhood + sup_descubierta,
-  data = train_ds
-)
-tidy_ml <- tidy(modelo_log, conf.int = TRUE)
-tidy_ml
+lm_log = lm( log(price) ~ log(rooms) + log(bathrooms) + log(surface_covered) + property_type + neighborhood + surface_uncovered, data = train_ds )
+
+tidy_ml_log <- tidy(lm_log, conf.int = TRUE)
+tidy_ml_log
 ```
 
+### Aplicamos Test F 
 ```{r}
-tidy(
-  anova(modelo_log)
-)
+tidy(anova(lm_log))
 ```
-De nuestro modelo confirmamos que todos los coeficientes resultan significativos.
 
-Ahora comparamos nuestro nuevo *modelo_log* con nuestro *lm_surface_uncovered*.
+Observaciones:
+
+* De nuestro modelo confirmamos que todos los coeficientes resultan significativos.
+
+### Determinamos cuál modelo explica mejor la variabilidad del precio (lm_surface_uncovered, lm_log)
 ```{r}
-modelos = list(
-  modelo_log = modelo_log,
-  lm_surface_uncovered = lm_surface_uncovered
-)
+models = list( lm_log = lm_log, lm_surface_uncovered = lm_surface_uncovered )
 
-purrr::map_df(modelos, broom::glance, .id = "model")
+purrr::map_df(models, broom::glance, .id = "model")
 ```
-Observamos que el mismo explica mejor la variabilidad $Rˆ2$
+El modelo *lm_surface_uncovered* supera al *lm_logs* en el $Rˆ2$ y por lo tanto tiene mayor explicabilidad sobre la variabilidad del precio de las propiedades.
 
-Ahora vamos a analizar el cumplimiento de los supuestos del modelo lineal
+### Diagnóstico del modelo
 ```{r}
-plot(modelo_log)
+plot(lm_log)
 ```
-- *Residuos vs valores predichos:* parece existir  una cierta estructura en los datos. La linealidad se respeta. Podemos observar un comportamiento heterocedástico aunque parece ser más uniforme que el del *lm_surface_uncovered*. Se resaltan 3 observaciones (observaciones 3636,3709,7346).
-- *Normal QQ plot:* los extremos no se ajustan a la distribución teórica, tanto inferior izquierdo como superior derecho. Sin embargo parece que se comportan ligeramente mejor que el *lm_surface_uncovered* (parecen estár mas suavizados los extremos).
-- *Residual vs leverage:*. se pueden apreciar 2 puntos con un leverage bastante alto y el grafico resalta 3 observaciones.
 
-- **Diagnóstico del modelo:** El modelo creado no cumple con los supuestos del modelo lineal.Sin embargo y de observar los gráficos, parece que se comporta mejor que el *lm_surface_uncovered*.
+Del plot de **Residual vs Fitted** se puede observar que se repeta cierta linealidad y,  por otro lado,  mientras aumentan las predicciones aumenta la heterocedasticidad, además se remarcan algunos puntos en el plot: 3636, 7346, 3709.  En **Residual vs leverage** vemos varios puntos con un leverage alto y se remarcan algunos puntos tambien.
+Por último em **Normal Q-Q** se observa que los extremos no se ajustan a la distribución teórica.
+
+En conclusión, el modelo *lm_log* no comple con los supuestos del modelo lineal.
 
 ## Selección del Modelo
 
-Vamos a generar un nuevo modelo utilizando como variables $log(rooms)$, $log(bathrooms)$, $log(surface_total)$, **property_type** y **neighborhood** y otro similar a nuestro *modelo_log* reemplazando la variable **neighborhood** por la variable **l3**.
+Vamos a crear dos nuevos modelos
 
-### Generación Nuevos Modelos
+### Generación modelo Log(pricer) V2
 
-Generamos nuestro modelo *modelo_log_surface_total* que buscará inferir el resultado del $log(price)$
+$$
+log(price) = \beta_0 + \beta_1log(surface\_total) + \beta_2log(bathrooms) + \beta_3log(surface\_covered) +  \beta_4property\_type + \beta_5neighborhood + \beta_6surface\_uncovered
+$$
+
 ```{r}
-modelo_log_surface_total = lm(
-  log(price) ~ log(rooms) + log(bathrooms) + log(surface_total) + property_type + neighborhood,
-  data = train_ds
-)
-tidy_mlst <- tidy(modelo_log_surface_total, conf.int = TRUE)
-tidy_mlst
-```
-En nuestro modelo podemos observar como el coeficiente de $log(rooms)$ parece no ser significativo (su p-valor = 0.5) y su intervalo de confianza incluye el 0. El resto de nuestros coeficientes parecen ser significativos.
+lm_log_v2 = lm( log(price) ~ log(surface_total) + log(bathrooms) + log(surface_covered) + property_type + neighborhood + surface_uncovered, data = train_ds )
 
-Debido a que neustros coeficientes para la variable $log(rooms)$ parece que no son significativos, vamos a analizar si la interacción de la variable si lo es para nuestro modelo.
+tidy_lm_log_v2 <- tidy(lm_log_v2, conf.int = TRUE)
+tidy_lm_log_v2
+```
+
+Observaciones:
+
+* Todas los coeficientes tiene p-value menor a 0.5 por lo tanto las variables son significativas
+
+### Diagnóstico del modelo
 ```{r}
-tidy(
-  anova(modelo_log_surface_total)
-)
+plot(lm_log_v2)
 ```
-Y resulta que si lo es.
 
-Analizamos el cumplimiento de los supuestos de nuestro modelo.
+Podemos ver como el modelo se comporta de forma muy similar al *lm_log*. 
+
+### Generación modelo Log(pricer) V3
+
+$$
+log(price) = \beta_0 + \beta_1log(surface\_total) + \beta_2log(bathrooms) + \beta_3log(surface\_covered) +  \beta_4neighborhood + \beta_5surface\_uncovered
+$$
+
+
 ```{r}
-plot(modelo_log_surface_total)
-```
-Podemos ver como nuestro modelo se comporta de forma muy similar al *modelo_log*. 
-Sin embargo hay una diferencia importante al analizar **Residuos vs Leverage**. Aca podemos observar como hay una especie de corte en el leverage entre los valores de 0.0007 y 0.0013 (aproximadamente).
+lm_log_v3 = lm( log(price) ~ log(surface_total) + log(bathrooms) + log(surface_covered) + neighborhood + surface_uncovered, data = train_ds )
 
-Generamos nuestro modelo *modelo_log_surface_total* que buscará inferir el resultado del $log(price)$
+tidy_lm_log_v3 <- tidy(lm_log_v3, conf.int = TRUE)
+tidy_lm_log_v3
+```
+Observaciones:
+
+* Todas los coeficientes tiene p-value menor a 0.5 por lo tanto las variables son significativas
+
+### Diagnóstico del modelo
 ```{r}
-modelo_log_l3 = lm(
-  log(price) ~ log(rooms) + log(bathrooms) + log(surface_covered) + property_type + sup_descubierta + l3 ,
-  data = train_ds
-)
-tidy_mll3 <- tidy(modelo_log_l3, conf.int = TRUE)
-tidy_mll3
+plot(lm_log_v3)
 ```
-En este modelo, podemos observar el mismo problema que surgía al incorporar al analisis la variable **l3**. Sin embargo, el resto de nuestros coeficientes parecen ser estadisticamente significativos.
 
-Debido a que neustros coeficientes para la variable **l3** parece que no son significativos, vamos a analizar si la interacción de la variable si lo es para nuestro modelo.
+Podemos ver como el modelo se comporta de forma muy similar al *lm_log*. 
+
+### Selección de modelos
+
+Se seleccionan para evaluación los modelos logaritmicos **ml_log**, **ml_log_v2** y **ml_log_v3** y el modelo **lm_surface_uncovered**.
+
+### Determinamos cuál modelo explica mejor la variabilidad del precio (lm_surface_uncovered, lm_log, lm_log_v2, lm_log_v3 )
+
 ```{r}
-tidy(
-  anova(modelo_log_l3)
-)
+models = list(lm_surface_uncovered = lm_surface_uncovered, lm_log = lm_log, lm_log_v2 = lm_log_v2, lm_log_v3 = lm_log_v3 )
+
+purrr::map_df(models, broom::glance, .id = "model") %>% arrange(adj.r.squared)
 ```
-Y resulta que si lo es.
 
-Analizamos el cumplimiento de los supuestos de nuestro modelo.
-```{r}
-plot(modelo_log_l3)
-```
-- *Residuos vs valores predichos:* parece existir  una cierta estructura en los datos. La linealidad se respeta. Podemos observar un comportamiento heterocedástico (muy similar al *modelo_log*). Se resaltan 3 observaciones (observaciones 7346,7942, 28022).
-- *Normal QQ plot:* los extremos no se ajustan a la distribución teórica, tanto inferior izquierdo como superior derecho. Sin embargo parece haber cierto suavizado en el extremo superior derecho en comparación a otros modelos.
-- *Residual vs leverage:*. se pueden apreciar 3 puntos con un leverage bastante alto y el grafico resalta 3 observaciones (3636, 22246,26579).
-
-- **Diagnóstico del modelo:** El modelo creado no cumple con los supuestos del modelo lineal. Parece que se comporta muy similar al *modelo_log* con una excepción al analizar el grafico de **Residual vs leverage**.
-
-### Evaluación de Modelos Seleccionados
-
-Ahora vamos a elegir 2 de los modelos previamente desarrollados para evaluar y seleccionar, junto a nuestros 2 nuevos modelos, cual es el que mejor permite inferir el precio de una propiedad.
-Vamos a elegir los modelos que mejor expresan la variabilidad $Rˆ2$. Estos son el *modelo_log* y *lm_surface_uncovered*.
-```{r}
-modelos = list(
-  modelo_log = modelo_log,
-  lm_surface_uncovered = lm_surface_uncovered,
-  modelo_log_surface_total = modelo_log_surface_total,
-  modelo_log_l3 = modelo_log_l3
-)
-
-purrr::map_df(modelos, broom::glance, .id = "model") %>%
-  arrange(adj.r.squared)
-```
-Podemos observar que el modelo que mejor explica la variabilidad es el modelo *modelo_log_surface_total*. Observamos el valor del $Rˆ2$ ajustado.
+El modelo *lm_log_v2* supera al resto de los modelos en el $Rˆ2$ y por lo tanto tiene mayor explicabilidad sobre la variabilidad del precio de las propiedades. De todas formas hay que destacar que todos los modelos tienen un $Rˆ2$ mayor a 0.91.
 
 ### Predicción
 
-Cargamos el dataset de testing y le aplicamos nuestras transformaciones.
+#### Carga del dataset de testing
 ```{r}
-propiedades_test <- read_csv(here("/ds/ar_properties_test.csv"))
+test_ds <- read_csv(here("/ds/ar_properties_test.csv"))
 
-propiedades_test = propiedades_test %>%
+test_ds = test_ds %>%
   mutate(
     price_m_sq = price / surface_total,
     neighborhood = factor(
@@ -413,64 +403,60 @@ propiedades_test = propiedades_test %>%
         price_m_sq > quantile(price_m_sq)[4] ~ "high_price"
       )
     ),
-    sup_descubierta = surface_total - surface_covered
+    surface_uncovered = surface_total - surface_covered
   )
 
-propiedades_test
+test_ds
 ```
 
-#### Evaluamos en Training
+#### Evaluación en Training
 
-Ahora vamos a evaluar nuestros modelos en training y evaluar sus predicciones en testing. Para esto es necesario hacer un análisis distinto para los modelos que utilizan $log$ que para el *lm_surface_uncovered*.
+##### Evaluación de modelos logaritmicos (**lm_log**, **lm_log_v2**, **lm_log_v3**)
 ```{r}
-modelos_log = list(
-  modelo_log = modelo_log,
-  modelo_log_l3 = modelo_log_l3,
-  modelo_log_surface_total = modelo_log_surface_total
-)
+models_log = list(lm_log = lm_log, lm_log_v2 = lm_log_v2, lm_log_v3 = lm_log_v3 )
 ```
 
 ```{r}
-predicciones_training_log = map(.x = modelos_log, .f = augment)
+pred_train_log = map(.x = models_log, .f = augment)
 ```
 
 ```{r}
 map_dfr(
-  .x = predicciones_training_log, 
+  .x = pred_train_log, 
   .f = rmse, 
   truth = exp(`log(price)`), 
   estimate = exp(.fitted), 
   .id="modelo"
 ) %>% arrange(.estimate)
 ```
+##### Evaluación del modelo no logaritmico (**lm_surface_uncovered**)
 
 ```{r}
-eval_train_sd = augment(lm_surface_uncovered)
+pred_train_surface_uncovered = augment(lm_surface_uncovered)
 ```
 
 ```{r}
 rmse(
-  data = eval_train_sd,
+  data = pred_train_surface_uncovered,
   truth = price,
   estimate = .fitted
 )
 ```
-Analizando los **RMSE** de nuestros modelos en training, podemos observar que el modelo con el menor valor es nuestro *lm_surface_uncovered* seguido (en orden) por los modelos *modelo_log_surface_total*, *modelo_log*, *modelo_log_l3*.
 
-#### Evaluamos en Testing
+De de los 4 modelos evaluados en training se destaca *lm_surface_uncovered* por tener el menor valor de **RMSE**.
 
-Ahora vamos a evaluar nuestros modelos en testing.
+#### Evaluación en Testing
+
+##### Evaluación de modelos logaritmicos (**lm_log**, **lm_log_v2**, **lm_log_v3**)
 ```{r}
-# Aplicamos la función augment a los 4 modelos con el set de testing
-predicciones_testing = map(
-  .x = modelos_log, 
+pred_test_log = map(
+  .x = models_log, 
   .f = augment,
-  newdata = propiedades_test
+  newdata = test_ds
 ) 
 
-# Obtenemos el RMSE para los 4 modelos
 map_dfr(
-  .x = predicciones_testing, 
+  .x = pred_test_log, 
   .f = rmse, 
   truth = price, 
   estimate = exp(.fitted), 
@@ -478,37 +464,31 @@ map_dfr(
 ) %>% 
   arrange(.estimate)
 ```
+##### Evaluación del modelo no logaritmico (**lm_surface_uncovered**)
 
 ```{r}
-pred_log = augment(
+pred_test_surface_uncovered = augment(
   lm_surface_uncovered, 
-  newdata=propiedades_test
+  newdata=test_ds
 ) 
-pred_log
+pred_test_surface_uncovered
 ```
 
 ```{r}
 rmse(
-  data = pred_log, 
+  data = pred_test_surface_uncovered, 
   truth = price, 
   estimate = .fitted
 )
 ```
-Volvemos a observar como el modelo con el menor valor de **RMSE** es nuestro *lm_surface_uncovered*.
+De de los 4 modelos evaluados en testing se destaca *lm_surface_uncovered* por tener el menor valor de **RMSE** al igual que con el dataset de training.
 
-### Conclusion
+### Conclusiones finales
 
-En lineas generales no podemos afirmar que nuestros modelos cumplen los supuestos del modelo lineal.
+De los 4 modelos evaluados el que se destaca por sobre el resto es **lm_surface_uncovered** que tiene un $Rˆ2$ alto de 0.9211874 que asegura una alta explicabilidad  del precio de las propiedades y además tiene el RMSE (error cuadrático medio) mas bajo lo cuál nos asegura que sus predicciones van a ser las mas cercanas a los valores reales.
+Es para destacar que los 4 modelos seleccionados tienen un $Rˆ2$  mayor a 0.91 y que ninguno parecen cumplir los supuestos del modelo lineal. 
 
-Sin embargo, podemos utilizar nuestros modelos para predecir los valores del **precio** de las propiedades. Ahora bien, para elegir el mejor de los modelos propuestos, vamos a fundamentar nuestra decisión en base a la evaluación de las 2 métricas que estamos observando:
-- $Rˆ2$
-- **RMSE**
 
-Los modelos que mejor explican la variabilidad medida por $Rˆ2$ ajustado son el *modelo_log*, *lm_surface_uncovered* y *modelo_log_surface_total*. Todos estos modelos se encuentran con valores superiores a 0.91.
-
-Sin embargo, nosotros queremos predecir nuevos datos y para ello es importante medir el **RMSE** para evaluar el error en la predicción. Al analizar esta metrica, observamos un salto importante entre nuestro *lm_surface_uncovered* (38974.87) y sus seguidores *modelo_log_surface_total* (43832.07) y *modelo_log* (46152.97).
-
-Por ende seleccionaría como mi mejor modelo el modelo **lm_surface_uncovered**.
 
 
 
