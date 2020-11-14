@@ -83,7 +83,7 @@ tab1(train_ds$l3, sort.group = "decreasing", cum.percent = TRUE)
 ```
 #### Observaciones sobre los datos
 * El dataset contiene 8 variables y 32132 registros
-* De las 8 variables, 5 son núnericas y 3 son alfanuméricas
+* De las 8 variables, 5 son nunéricas y 3 son alfanuméricas
 * De las variables alfanuméricas tenemos el barrio (*l3*) y el tipo de propiedad (*property_type*). La tercera es un UUID para la propiedad (*id*)
 * En base a los valores únicos encontrados para *l3* podemos inferir que las propiedades pertenecen a CABA en su totalidad.
 * De las númericas, además del precio (*price*) tenemos variables que describen la propiedad: cantidad de habitaciones (*rooms*), cantidad de baños (*bathrooms*), supervicie total (*surface_total*) y superficie cubierta (*surface_covered*)
@@ -128,7 +128,7 @@ tidy_lm_all
 
 Analizando los p-valores de las variables dummies asociadas a **property_type** estas resultan estadísticamente significativas. Por otro lado, las variables dummies asociados a la variable **l3**  se reparten entre algunas significativas y otras no.
 
-##### Aplicamos Test F 
+##### Se aplica Test F 
 ```{r}
 tidy(anova(lm_all))
 ```
@@ -165,7 +165,7 @@ tidy_lm_wo_l3 <- tidy(lm_wo_l3, conf.int = TRUE)
 tidy_lm_wo_l3
 ```
 
-##### Aplicamos Test F 
+##### Se aplica Test F 
 ```{r}
 tidy(
   anova(lm_wo_l3)
@@ -175,7 +175,7 @@ tidy(
 Al quitar la variable *l3* la cantidad de coeficientes se reduce considerablemente, no necesitamos graficar para indentificar que ningúno de los intervalos de confianza incluye el 0. 
 Por otro lado todos los p-values son menores a 0.5 ergo las variables se pueden considerar significativas, esto tambien se ve confirmado por el resultado del Test F.
 
-### Determinamos cuál modelo explica mejor la variabilidad del precio (lm_all o lm_wo_l3)
+### Se determina cuál modelo explica mejor la variabilidad del precio (lm_all o lm_wo_l3)
 ```{r}
 models = list(lm_all = lm_all, lm_wo_l3 = lm_wo_l3)
 
@@ -190,7 +190,7 @@ El $Rˆ2$ de **lm_all**  es superior al del modelo **lm_wo_l3** por lo tanto el 
 
 En el análisis anterior se observó que **l3** no es un buen agrupador, algunas de sus dummies eran significativas pero muchas otras no. Vamos a proceder a crear una nueva variable **neighborhood** que agrupe a las propiedad teniendo en cuenta el precio del metro cuadrado.
 
-Es necesario tambien agregar otra variable auxiliar que contenta el precio por metro para luego poder hacer el agrupamiento necesario:
+Es necesario tambien agregar otra variable auxiliar que contenga el precio por metro cuadrado para luego poder hacer el agrupamiento necesario:
 
 * *price_m_sq* =  *price_m_sq*  / *surface_total* 
 
@@ -215,7 +215,7 @@ train_ds = train_ds %>% mutate(
 train_ds
 ```
 
-### Generamos modelo reemplazando *l3* por *neighborhood*
+### Generación de modelo reemplazando *l3* por *neighborhood*
 
 ```{r}
 lm_neighborhoods <- lm(price ~ rooms + bathrooms + surface_total + surface_covered + property_type + neighborhood, data = train_ds)
@@ -229,7 +229,7 @@ Observaciones:
 * Todas los coeficientes tiene p-value menor a 0.5 por lo tanto las variables son significativas
 * El intervalo de confianza del B0 contiene al cero
 
-### Determinamos cuál modelo explica mejor la variabilidad del precio (lm_all, lm_wo_l3 o lm_neighborhood)
+### Se determina cuál modelo explica mejor la variabilidad del precio (lm_all, lm_wo_l3 o lm_neighborhood)
 
 ```{r}
 models = list( lm_all = lm_all, lm_wo_l3 = lm_wo_l3, lm_neighborhoods = lm_neighborhoods )
@@ -248,7 +248,7 @@ train_ds = train_ds %>% mutate(surface_uncovered = surface_total - surface_cover
 train_ds 
 ```
 
-### Generamos modelo reemplazando *surface_total* por *surface_uncovered*
+### Generación de modelo reemplazando *surface_total* por *surface_uncovered*
 
 ```{r}
 lm_surface_uncovered <- lm( price ~ rooms + bathrooms + surface_uncovered + surface_covered + property_type + price_m_sq + neighborhood,  data = train_ds)
@@ -261,7 +261,7 @@ Observaciones:
 
 * Todas los coeficientes tiene p-value menor a 0.5 por lo tanto las variables son significativas
 
-### Determinamos cuál modelo explica mejor la variabilidad del precio (lm_all, lm_wo_l3, lm_neighborhood o lm_surface_uncovered)
+### Se determina cuál modelo explica mejor la variabilidad del precio (lm_all, lm_wo_l3, lm_neighborhood o lm_surface_uncovered)
 
 ```{r}
 models = list( lm_all = lm_all, lm_wo_l3 = lm_wo_l3, lm_neighborhoods = lm_neighborhoods, lm_surface_uncovered = lm_surface_uncovered )
@@ -294,7 +294,7 @@ tidy_ml_log <- tidy(lm_log, conf.int = TRUE)
 tidy_ml_log
 ```
 
-### Aplicamos Test F 
+### Se aplica Test F 
 ```{r}
 tidy(anova(lm_log))
 ```
@@ -303,7 +303,7 @@ Observaciones:
 
 * De nuestro modelo confirmamos que todos los coeficientes resultan significativos.
 
-### Determinamos cuál modelo explica mejor la variabilidad del precio (lm_surface_uncovered, lm_log)
+### Se determina cuál modelo explica mejor la variabilidad del precio (lm_surface_uncovered, lm_log)
 ```{r}
 models = list( lm_log = lm_log, lm_surface_uncovered = lm_surface_uncovered )
 
@@ -377,7 +377,7 @@ Podemos ver como el modelo se comporta de forma muy similar al *lm_log*.
 
 Se seleccionan para evaluación los modelos logaritmicos **ml_log**, **ml_log_v2** y **ml_log_v3** y el modelo **lm_surface_uncovered**.
 
-### Determinamos cuál modelo explica mejor la variabilidad del precio (lm_surface_uncovered, lm_log, lm_log_v2, lm_log_v3 )
+### Se determina cuál modelo explica mejor la variabilidad del precio (lm_surface_uncovered, lm_log, lm_log_v2, lm_log_v3 )
 
 ```{r}
 models = list(lm_surface_uncovered = lm_surface_uncovered, lm_log = lm_log, lm_log_v2 = lm_log_v2, lm_log_v3 = lm_log_v3 )
